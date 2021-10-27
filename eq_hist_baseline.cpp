@@ -1,5 +1,10 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <string>
+#include "opencv2/imgcodecs.hpp"
+
+using namespace cv;
+using namespace std;
 
 #define WIDTH                   512
 #define HEIGHT                  512
@@ -11,12 +16,21 @@ void cal_lut(unsigned char *src, uint8_t *lut);
 void sat_cast(uint16_t scaled_number);
 
 void main(){
-    
-    unsigned char *dst = malloc(sizeof(unsigned char)*IMAGE_SIZE);
-    unsigned char *src = malloc(sizeof(unsigned char)*IMAGE_SIZE);
+    string src_path = "./input.jpg";
+    string dst_path = "./output.jpg"
+    Mat src = imread( samples::findFile(src_path), IMREAD_COLOR );
+    if( src.empty() )
+    {
+        cout << "Could not open or find the image!\n" << endl;
+        return -1;
+    }
 
-    // TODO: 1. load input image to src
+    cvtColor( src, src, COLOR_BGR2GRAY);
+
+    Mat dst;
+    //unsigned char *dst = malloc(sizeof(unsigned char)*IMAGE_SIZE);
     eq_hist(src, dst);
+    imwrite(dst_path, dst);
 
     free(src);
     free(dst);
@@ -25,8 +39,18 @@ void main(){
 void eq_hist(unsigned char *src, unsigned char *dst){
     uint8_t *lut = malloc(sizeof(uint8_t)*INTENSITY_SPACE);
     cal_lut(src, lut);
-    // TODO: 1. map; 2. compare
+    
+    for (int i = 0; i < IMAGE_SIZE; ++i) {
+        dst[i] = lut[src[i]];
+    }
+
     free(lut);
+}
+
+void compare_hist(unsigned int *H1, unsigned int *H2){
+    // TODO: 
+    //1. normalize H1 and H2 by dividing the IMAGE_SIZE.
+    //2. calculate distance of two array H1 and H2. (L2 distance)
 }
 
 /*
@@ -35,6 +59,9 @@ void eq_hist(unsigned char *src, unsigned char *dst){
 */
 void cal_lut(unsigned char *src, uint8_t *lut){
     int *localHist;
+    int total = IMAGE_SIZE;
+    int hist_sz = INTENSITY_SPACE;
+
     localHist = calloc(sizeof(int), INTENSITY_SPACE);
 
     // collect histogram
