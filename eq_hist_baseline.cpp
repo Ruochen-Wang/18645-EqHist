@@ -53,10 +53,11 @@ void compare_hist(unsigned int *H1, unsigned int *H2){
     //1. normalize H1 and H2 by dividing the IMAGE_SIZE.
     //2. calculate distance of two array H1 and H2. (L2 distance)
     double result = 0;
+    double h1, h2;
 
-    for (int i = 0; i < IMAGE_SIZE; ++i){
-        H1[i] = H1[i] / IMAGE_SIZE;
-        H2[i] = H2[i] / IMAGE_SIZE;
+    for (int i = 0; i < INTENSITY_SPACE; ++i){
+        h1 = H1[i] / IMAGE_SIZE;
+        h2 = H2[i] / IMAGE_SIZE;
         result += pow((H1[i] - H2[i]), 2);
     }
     return sqrt(result);
