@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string>
+#include <math.h>
 #include "opencv2/imgcodecs.hpp"
 
 using namespace cv;
@@ -51,6 +52,14 @@ void compare_hist(unsigned int *H1, unsigned int *H2){
     // TODO: 
     //1. normalize H1 and H2 by dividing the IMAGE_SIZE.
     //2. calculate distance of two array H1 and H2. (L2 distance)
+    double result = 0;
+
+    for (int i = 0; i < IMAGE_SIZE; ++i){
+        H1[i] = H1[i] / IMAGE_SIZE;
+        H2[i] = H2[i] / IMAGE_SIZE;
+        result += pow((H1[i] - H2[i]), 2);
+    }
+    return sqrt(result);
 }
 
 /*
