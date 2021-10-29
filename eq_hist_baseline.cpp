@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string>
 #include <math.h>
+#include <iostream>
 #include <fstream>
 //#include "opencv2/imgcodecs.hpp"
 
@@ -13,8 +14,8 @@
 #define IMAGE_SIZE              WIDTH*HEIGHT
 #define INTENSITY_SPACE         256
 
-void eq_hist(char *src, unsigned char *dst);
-void cal_lut(char *src, uint8_t *lut);
+void eq_hist(unsigned char *src, unsigned char *dst);
+void cal_lut(unsigned char *src, uint8_t *lut);
 uint8_t sat_cast(uint16_t scaled_number);
 
 int main(){
@@ -34,20 +35,20 @@ int main(){
 
     // prepare input
     std::ifstream input_file("0a9da1fa077e_d510dfa4b13d.b", std::ifstream::binary);
-    char *src = new char[IMAGE_SIZE];
-    input_file.read(src, IMAGE_SIZE);
+    std::ofstream output_file("0a9da1fa077e_d510dfa4b13d_equalized.b", std::ios::out | std::ios::binary);
+    unsigned char *src = new unsigned char[IMAGE_SIZE];
+    input_file.read((char *)src, IMAGE_SIZE);
 
     unsigned char *dst = new unsigned char [IMAGE_SIZE];
 
     eq_hist(src, dst);
 //    imwrite(dst_path, dst);
+    output_file.write((char *)dst, IMAGE_SIZE);
 
-    free(src);
-    free(dst);
     return 0;
 }
 
-void eq_hist(char *src, unsigned char *dst){
+void eq_hist(unsigned char *src, unsigned char *dst){
     uint8_t *lut = new uint8_t[INTENSITY_SPACE];
     cal_lut(src, lut);
     
@@ -55,7 +56,6 @@ void eq_hist(char *src, unsigned char *dst){
         dst[i] = lut[(unsigned char)src[i]];
     }
 
-    free(lut);
 }
 
 float compare_hist(unsigned int *H1, unsigned int *H2){
@@ -77,14 +77,14 @@ float compare_hist(unsigned int *H1, unsigned int *H2){
 *   @input: src: pointer to an array of IMAGE_SIZE number of unsigned char
 *   @output: lut: pointer to an array of INTENSITY_SPACE number of uint8_t
 */
-void cal_lut(char *src, uint8_t *lut){
+void cal_lut(unsigned char *src, uint8_t *lut){
     int *localHist = new int [INTENSITY_SPACE];
 //    int total = IMAGE_SIZE;
 //    int hist_sz = INTENSITY_SPACE;
 
     // collect histogram
-    for (int i = 0; i < INTENSITY_SPACE; i)
-        localHist[src[i]]++;
+    for (int i = 0; i < INTENSITY_SPACE; i++)
+        localHist[(unsigned char)src[i]]++;
 
     // find the first non-zero intensity
     int i = 0;
