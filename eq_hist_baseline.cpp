@@ -36,14 +36,17 @@ int main(){
     // prepare input
     std::ifstream input_file("0a9da1fa077e_d510dfa4b13d.b", std::ifstream::binary);
     std::ofstream output_file("0a9da1fa077e_d510dfa4b13d_equalized.b", std::ios::out | std::ios::binary);
+//    std::ofstream lut_file("lut.txt", std::ios::out | std::ios::binary);
     unsigned char *src = new unsigned char[IMAGE_SIZE];
     input_file.read((char *)src, IMAGE_SIZE);
 
     unsigned char *dst = new unsigned char [IMAGE_SIZE];
-
+//    uint8_t *lut = new uint8_t[INTENSITY_SPACE];
+//    cal_lut(src, lut);
     eq_hist(src, dst);
-//    imwrite(dst_path, dst);
+
     output_file.write((char *)dst, IMAGE_SIZE);
+//    lut_file.write((char *)lut, INTENSITY_SPACE);
 
     return 0;
 }
@@ -83,7 +86,7 @@ void cal_lut(unsigned char *src, uint8_t *lut){
 //    int hist_sz = INTENSITY_SPACE;
 
     // collect histogram
-    for (int i = 0; i < INTENSITY_SPACE; i++)
+    for (int i = 0; i < IMAGE_SIZE; i++)
         localHist[(unsigned char)src[i]]++;
 
     // find the first non-zero intensity
@@ -98,7 +101,8 @@ void cal_lut(unsigned char *src, uint8_t *lut){
     {
         sum += localHist[i];
         float scaled_intensity = sum*scale;
-        lut[i] = sat_cast((uint16_t) scaled_intensity); // prevent ovf
+        //lut[i] = sat_cast((uint16_t) scaled_intensity); // prevent ovf
+        lut[i] = scaled_intensity;
     }
 }
 
