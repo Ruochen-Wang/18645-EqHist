@@ -9,10 +9,15 @@
 //using namespace cv;
 //using namespace std;
 
-#define WIDTH                   512
-#define HEIGHT                  512
+#define WIDTH                  	512 
+#define HEIGHT                  WIDTH
 #define IMAGE_SIZE              WIDTH*HEIGHT
 #define INTENSITY_SPACE         256
+static __inline__ unsigned long long rdtsc(void) {
+  unsigned hi, lo;
+  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+  return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
 
 void eq_hist(unsigned char *src, unsigned char *dst);
 void cal_lut(unsigned char *src, uint8_t *lut);
@@ -20,15 +25,18 @@ uint8_t sat_cast(uint16_t scaled_number);
 
 int main(){
     // prepare input
-    std::ifstream input_file("0a9da1fa077e_d510dfa4b13d.b", std::ifstream::binary);
-    std::ofstream output_file("0a9da1fa077e_d510dfa4b13d_equalized.b", std::ios::out | std::ios::binary);
+    std::ifstream input_file("512.b", std::ifstream::binary);
+    std::ofstream output_file("512_equalized.b", std::ios::out | std::ios::binary);
 
     unsigned char *src = new unsigned char[IMAGE_SIZE];
     input_file.read((char *)src, IMAGE_SIZE);
 
     unsigned char *dst = new unsigned char [IMAGE_SIZE];
+	unsigned long long t0 = rdtsc();
     eq_hist(src, dst);
+	unsigned long long t1 = rdtsc();
 
+	printf("delay: %d\n", t1-t0);
     output_file.write((char *)dst, IMAGE_SIZE);
 
     return 0;
