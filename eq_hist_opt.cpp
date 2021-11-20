@@ -23,7 +23,9 @@ static __inline__ unsigned long long rdtsc(void) {
 
 //void eq_hist(unsigned char *src, unsigned char *dst);
 void multistream_cal_hist(unsigned char *src, uint32_t *hist);
+void new_multistream_cal_hist(unsigned char *src, uint32_t *hist);
 void singlestream_cal_hist(unsigned char *src, uint32_t *hist);
+void openmp_cal_hist(unsigned char *src, uint32_t *hist);
 void base_cal_hist(unsigned char *src, uint32_t *hist);
 //void cal_lut(unsigned char *src, uint8_t *lut);
 void cal_lut(uint32_t *hist, uint8_t *lut);
@@ -37,36 +39,49 @@ int main(){
 //    unsigned char *src = new unsigned char[IMAGE_SIZE];
 	unsigned char *src = (unsigned char *)memalign(256, IMAGE_SIZE*sizeof(uint8_t));
     input_file.read((char *)src, IMAGE_SIZE);
-
-	printf("reading...\n");
-	__m256i a = _mm256_stream_load_si256 ((__m256i const*) (src));
-	printf("read here succeed\n");
-    unsigned char *dst = new unsigned char [IMAGE_SIZE];
+    
+	unsigned char *dst = new unsigned char [IMAGE_SIZE];
 	uint32_t *hist1 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
 	uint32_t *hist2 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
 	uint32_t *hist3 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
+	uint32_t *hist4 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
+	uint32_t *hist5 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
 
 	unsigned long long t0, t1;	
 
-	t0 = rdtsc();
-	base_cal_hist(src, hist1);
-	t1 = rdtsc();
-	printf("baseline delay: %d\n", t1-t0);
+	for(int i = 1; i <= 20; i++){
+		printf("%2d ", i);
 
-	t0 = rdtsc();
-	singlestream_cal_hist(src, hist2);
-	t1 = rdtsc();
-	printf("singlestream delay: %d\n", t1-t0);
+		t0 = rdtsc();
+		base_cal_hist(src, hist1);
+		t1 = rdtsc();
+		printf("%ld ", t1-t0);
+	
+		t0 = rdtsc();
+		singlestream_cal_hist(src, hist2);
+		t1 = rdtsc();
+		printf("%ld ", t1-t0);
+	
+		t0 = rdtsc();
+		new_multistream_cal_hist(src, hist3);
+		t1 = rdtsc();
+		printf("%ld ", t1-t0);
 
-	t0 = rdtsc();
-	multistream_cal_hist(src, hist3);
-	t1 = rdtsc();
-	printf("multistream delay: %d\n", t1-t0);
+		t0 = rdtsc();
+		multistream_cal_hist(src, hist4);
+		t1 = rdtsc();
+		printf("%ld ", t1-t0);
+
+		t0 = rdtsc();
+		openmp_cal_hist(src, hist5);
+		t1 = rdtsc();
+		printf("%ld\n", t1-t0);
+	}
 /*
 	for(int i = 0; i < 32; i+=4){
 		printf("src: %d, %d, %d, %d\n", src[i], src[i+1], src[i+2], src[i+3]);
 	}
-*/
+
 	int hist1tt = 0, hist2tt = 0, hist3tt = 0;
 	for(int i = 0; i < INTENSITY_SPACE; i++){
 		hist1tt += hist1[i];
@@ -75,12 +90,14 @@ int main(){
 			printf("at %d actually: %d, expected: %d\n", i, hist1[i], hist3[i]);	
 	}
 	printf("total actually: %d, expected: %d\n", hist1tt, hist3tt);
-
+*/
 //	for(int i = 0; i < INTENSITY_SPACE; i++) printf("hist[%d]: %d\n", i, hist[i]);
 //    output_file.write((char *)dst, IMAGE_SIZE);
 	free(hist1);
 	free(hist2);
 	free(hist3);
+	free(hist4);
+	free(hist5);
 	free(src);
     return 0;
 }
@@ -114,6 +131,175 @@ float compare_hist(unsigned int *H1, unsigned int *H2){
 *   @input: src: pointer to an array of IMAGE_SIZE number of unsigned char
 *   @output: lut: pointer to an array of INTENSITY_SPACE number of uint8_t
 */
+void new_multistream_cal_hist(unsigned char *src, uint32_t *hist){
+    // collect histogram
+    __m256i a, b, c, d, e, f, g, h;
+	uint64_t a0, a1, a2, a3;
+	uint64_t b0, b1, b2, b3;
+	uint64_t c0, c1, c2, c3;
+	uint64_t d0, d1, d2, d3;
+	uint64_t e0, e1, e2, e3;
+	uint64_t f0, f1, f2, f3;
+	uint64_t g0, g1, g2, g3;
+	uint64_t h0, h1, h2, h3;
+	// divide into 4 streams, load 32 bytes at once
+	for(int i = 0; i < IMAGE_SIZE/(32*4); i += 1){
+
+		a = _mm256_stream_load_si256 ((__m256i const*)src+i);
+		a0 = _mm256_extract_epi64(a, 0);
+		a1 = _mm256_extract_epi64(a, 1);
+		a2 = _mm256_extract_epi64(a, 2);
+		a3 = _mm256_extract_epi64(a, 3);
+		// extracrt 8 bits from 64-bit
+		hist[a0&0xFF]++;
+		hist[(a0>>8)&0xFF]++;
+		hist[(a0>>16)&0xFF]++;
+		hist[(a0>>24)&0xFF]++;
+		hist[(a0>>32)&0xFF]++;
+		hist[(a0>>40)&0xFF]++;
+		hist[(a0>>48)&0xFF]++;
+		hist[(a0>>56)&0xFF]++;
+		hist[a1&0xFF]++;
+		hist[(a1>>8)&0xFF]++;
+		hist[(a1>>16)&0xFF]++;
+		hist[(a1>>24)&0xFF]++;
+		hist[(a1>>32)&0xFF]++;
+		hist[(a1>>40)&0xFF]++;
+		hist[(a1>>48)&0xFF]++;
+		hist[(a1>>56)&0xFF]++;
+		hist[a2&0xFF]++;
+		hist[(a2>>8)&0xFF]++;
+		hist[(a2>>16)&0xFF]++;
+		hist[(a2>>24)&0xFF]++;
+		hist[(a2>>32)&0xFF]++;
+		hist[(a2>>40)&0xFF]++;
+		hist[(a2>>48)&0xFF]++;
+		hist[(a2>>56)&0xFF]++;
+		hist[a3&0xFF]++;
+		hist[(a3>>8)&0xFF]++;
+		hist[(a3>>16)&0xFF]++;
+		hist[(a3>>24)&0xFF]++;
+		hist[(a3>>32)&0xFF]++;
+		hist[(a3>>40)&0xFF]++;
+		hist[(a3>>48)&0xFF]++;
+		hist[(a3>>56)&0xFF]++;
+
+		b = _mm256_stream_load_si256 ((__m256i const*)src+i+1*1024*2);
+		b0 = _mm256_extract_epi64(b, 0);
+		b1 = _mm256_extract_epi64(b, 1);
+		b2 = _mm256_extract_epi64(b, 2);
+		b3 = _mm256_extract_epi64(b, 3);
+		hist[b0&0xFF]++;
+		hist[(b0>>8)&0xFF]++;
+		hist[(b0>>16)&0xFF]++;
+		hist[(b0>>24)&0xFF]++;
+		hist[(b0>>32)&0xFF]++;
+		hist[(b0>>40)&0xFF]++;
+		hist[(b0>>48)&0xFF]++;
+		hist[(b0>>56)&0xFF]++;
+		hist[b1&0xFF]++;
+		hist[(b1>>8)&0xFF]++;
+		hist[(b1>>16)&0xFF]++;
+		hist[(b1>>24)&0xFF]++;
+		hist[(b1>>32)&0xFF]++;
+		hist[(b1>>40)&0xFF]++;
+		hist[(b1>>48)&0xFF]++;
+		hist[(b1>>56)&0xFF]++;
+		hist[b2&0xFF]++;
+		hist[(b2>>8)&0xFF]++;
+		hist[(b2>>16)&0xFF]++;
+		hist[(b2>>24)&0xFF]++;
+		hist[(b2>>32)&0xFF]++;
+		hist[(b2>>40)&0xFF]++;
+		hist[(b2>>48)&0xFF]++;
+		hist[(b2>>56)&0xFF]++;
+		hist[b3&0xFF]++;
+		hist[(b3>>8)&0xFF]++;
+		hist[(b3>>16)&0xFF]++;
+		hist[(b3>>24)&0xFF]++;
+		hist[(b3>>32)&0xFF]++;
+		hist[(b3>>40)&0xFF]++;
+		hist[(b3>>48)&0xFF]++;
+		hist[(b3>>56)&0xFF]++;
+
+		c = _mm256_stream_load_si256 ((__m256i const*)src+i+2*1024*2);
+		c0 = _mm256_extract_epi64(c, 0);
+		c1 = _mm256_extract_epi64(c, 1);
+		c2 = _mm256_extract_epi64(c, 2);
+		c3 = _mm256_extract_epi64(c, 3);
+		hist[c0&0xFF]++;
+		hist[(c0>>8)&0xFF]++;
+		hist[(c0>>16)&0xFF]++;
+		hist[(c0>>24)&0xFF]++;
+		hist[(c0>>32)&0xFF]++;
+		hist[(c0>>40)&0xFF]++;
+		hist[(c0>>48)&0xFF]++;
+		hist[(c0>>56)&0xFF]++;
+		hist[c1&0xFF]++;
+		hist[(c1>>8)&0xFF]++;
+		hist[(c1>>16)&0xFF]++;
+		hist[(c1>>24)&0xFF]++;
+		hist[(c1>>32)&0xFF]++;
+		hist[(c1>>40)&0xFF]++;
+		hist[(c1>>48)&0xFF]++;
+		hist[(c1>>56)&0xFF]++;
+		hist[c2&0xFF]++;
+		hist[(c2>>8)&0xFF]++;
+		hist[(c2>>16)&0xFF]++;
+		hist[(c2>>24)&0xFF]++;
+		hist[(c2>>32)&0xFF]++;
+		hist[(c2>>40)&0xFF]++;
+		hist[(c2>>48)&0xFF]++;
+		hist[(c2>>56)&0xFF]++;
+		hist[c3&0xFF]++;
+		hist[(c3>>8)&0xFF]++;
+		hist[(c3>>16)&0xFF]++;
+		hist[(c3>>24)&0xFF]++;
+		hist[(c3>>32)&0xFF]++;
+		hist[(c3>>40)&0xFF]++;
+		hist[(c3>>48)&0xFF]++;
+		hist[(c3>>56)&0xFF]++;
+
+		d = _mm256_stream_load_si256 ((__m256i const*)src+i+3*1024*2);
+		d0 = _mm256_extract_epi64(d, 0);
+		d1 = _mm256_extract_epi64(d, 1);
+		d2 = _mm256_extract_epi64(d, 2);
+		d3 = _mm256_extract_epi64(d, 3);
+		hist[d0&0xFF]++;
+		hist[(d0>>8)&0xFF]++;
+		hist[(d0>>16)&0xFF]++;
+		hist[(d0>>24)&0xFF]++;
+		hist[(d0>>32)&0xFF]++;
+		hist[(d0>>40)&0xFF]++;
+		hist[(d0>>48)&0xFF]++;
+		hist[(d0>>56)&0xFF]++;
+		hist[d1&0xFF]++;
+		hist[(d1>>8)&0xFF]++;
+		hist[(d1>>16)&0xFF]++;
+		hist[(d1>>24)&0xFF]++;
+		hist[(d1>>32)&0xFF]++;
+		hist[(d1>>40)&0xFF]++;
+		hist[(d1>>48)&0xFF]++;
+		hist[(d1>>56)&0xFF]++;
+		hist[d2&0xFF]++;
+		hist[(d2>>8)&0xFF]++;
+		hist[(d2>>16)&0xFF]++;
+		hist[(d2>>24)&0xFF]++;
+		hist[(d2>>32)&0xFF]++;
+		hist[(d2>>40)&0xFF]++;
+		hist[(d2>>48)&0xFF]++;
+		hist[(d2>>56)&0xFF]++;
+		hist[d3&0xFF]++;
+		hist[(d3>>8)&0xFF]++;
+		hist[(d3>>16)&0xFF]++;
+		hist[(d3>>24)&0xFF]++;
+		hist[(d3>>32)&0xFF]++;
+		hist[(d3>>40)&0xFF]++;
+		hist[(d3>>48)&0xFF]++;
+		hist[(d3>>56)&0xFF]++;
+	}
+}
+
 void multistream_cal_hist(unsigned char *src, uint32_t *hist){
     // collect histogram
     __m256i a, b, c, d, e, f, g, h;
@@ -499,6 +685,58 @@ void singlestream_cal_hist(unsigned char *src, uint32_t *hist){
 */
 	}
 }
+void openmp_cal_hist(unsigned char *src, uint32_t *hist){
+    // collect histogram
+    __m256i a;
+	uint64_t a0, a1, a2, a3;
+	#pragma omp parallel for num_threads(32)
+	for(int i = 0; i < IMAGE_SIZE/32; i += 1){
+		a = _mm256_stream_load_si256 ((const __m256i*)src+i);
+		// extract 64 bits from 256-bit
+		a0 = _mm256_extract_epi64(a, 0);
+		a1 = _mm256_extract_epi64(a, 1);
+		a2 = _mm256_extract_epi64(a, 2);
+		a3 = _mm256_extract_epi64(a, 3);
+	//	#pragma omp critical
+		{
+		// extracrt 8 bits from 64-bit
+		hist[a0&0xFF]++;
+		hist[(a0>>8)&0xFF]++;
+		hist[(a0>>16)&0xFF]++;
+		hist[(a0>>24)&0xFF]++;
+		hist[(a0>>32)&0xFF]++;
+		hist[(a0>>40)&0xFF]++;
+		hist[(a0>>48)&0xFF]++;
+		hist[(a0>>56)&0xFF]++;
+		hist[a1&0xFF]++;
+		hist[(a1>>8)&0xFF]++;
+		hist[(a1>>16)&0xFF]++;
+		hist[(a1>>24)&0xFF]++;
+		hist[(a1>>32)&0xFF]++;
+		hist[(a1>>40)&0xFF]++;
+		hist[(a1>>48)&0xFF]++;
+		hist[(a1>>56)&0xFF]++;
+		hist[a2&0xFF]++;
+		hist[(a2>>8)&0xFF]++;
+		hist[(a2>>16)&0xFF]++;
+		hist[(a2>>24)&0xFF]++;
+		hist[(a2>>32)&0xFF]++;
+		hist[(a2>>40)&0xFF]++;
+		hist[(a2>>48)&0xFF]++;
+		hist[(a2>>56)&0xFF]++;
+		hist[a3&0xFF]++;
+		hist[(a3>>8)&0xFF]++;
+		hist[(a3>>16)&0xFF]++;
+		hist[(a3>>24)&0xFF]++;
+		hist[(a3>>32)&0xFF]++;
+		hist[(a3>>40)&0xFF]++;
+		hist[(a3>>48)&0xFF]++;
+		hist[(a3>>56)&0xFF]++;
+		} // end OpenMP critical
+	}
+}
+
+
 
 void base_cal_hist(unsigned char *src, uint32_t *hist){
     for (int i = 0; i < IMAGE_SIZE; i++)
