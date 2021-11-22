@@ -106,7 +106,7 @@ void cal_lut(unsigned char *src, uint8_t *lut){
     double scale = (INTENSITY_SPACE - 1.f)/(IMAGE_SIZE - localHist[i]);
 
     // define SIMD variables
-    __m256d simd_scale = _mm256_set1_pd(scale)
+    __m256d simd_scale = _mm256_set1_pd(scale);
     __m256d l0, l1, l2, l3;
     __m256d pre_cdf;
 
@@ -134,9 +134,9 @@ void cal_lut(unsigned char *src, uint8_t *lut){
         l1 = l1 + pre_cdf;
         l3 = l3 + pre_cdf;
 
-        lut[i] = _mm256_store_pd(&lut[i], l0)
-        lut[size + i] = _mm256_store_pd(&lut[size + i], l1)
-        lut[3 * size + i] = _mm256_store_pd(&lut[3 * size + i], l1)
+        lut[i] = _mm256_store_pd(&lut[i], l0);
+        lut[size + i] = _mm256_store_pd(&lut[size + i], l1);
+        lut[3 * size + i] = _mm256_store_pd(&lut[3 * size + i], l1);
     }
 
     // 1. normalize cdf of the second part
