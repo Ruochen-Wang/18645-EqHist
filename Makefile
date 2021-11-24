@@ -2,7 +2,7 @@
 CC = g++
 MPIC = mpic++
 
-CFLAGS = -mavx2 -g3 -fopenmp
+CFLAGS = -mavx2 -g3 -fopenmp -O2
 
 compile:
 	$(CC) $(CFLAGS) eq_hist_opt.cpp -o eq_hist

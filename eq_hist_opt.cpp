@@ -6,6 +6,7 @@
 #include <fstream>
 #include <immintrin.h>
 #include <malloc.h>
+#include <omp.h>
 //#include "opencv2/imgcodecs.hpp"
 
 //using namespace cv;
@@ -49,7 +50,7 @@ int main(){
 
 	unsigned long long t0, t1;	
 
-	for(int i = 1; i <= 20; i++){
+	for(int i = 1; i <= 30; i++){
 		printf("%2d ", i);
 
 		t0 = rdtsc();
@@ -78,18 +79,14 @@ int main(){
 		printf("%ld\n", t1-t0);
 	}
 /*
-	for(int i = 0; i < 32; i+=4){
-		printf("src: %d, %d, %d, %d\n", src[i], src[i+1], src[i+2], src[i+3]);
-	}
-
-	int hist1tt = 0, hist2tt = 0, hist3tt = 0;
+	int hist1tt = 0, hist2tt = 0, hist5tt = 0;
 	for(int i = 0; i < INTENSITY_SPACE; i++){
 		hist1tt += hist1[i];
-		hist3tt += hist3[i];
-		if(hist1[i] != hist3[i])
-			printf("at %d actually: %d, expected: %d\n", i, hist1[i], hist3[i]);	
+		hist5tt += hist5[i];
+		if(hist1[i] != hist5[i])
+			printf("at %d actually: %d, expected: %d\n", i, hist1[i], hist5[i]);	
 	}
-	printf("total actually: %d, expected: %d\n", hist1tt, hist3tt);
+	printf("total actually: %d, expected: %d\n", hist1tt, hist5tt);
 */
 //	for(int i = 0; i < INTENSITY_SPACE; i++) printf("hist[%d]: %d\n", i, hist[i]);
 //    output_file.write((char *)dst, IMAGE_SIZE);
@@ -685,20 +682,26 @@ void singlestream_cal_hist(unsigned char *src, uint32_t *hist){
 */
 	}
 }
-void openmp_cal_hist(unsigned char *src, uint32_t *hist){
+void openmp_cal_hist(unsigned char *src, uint32_t *global_hist){
     // collect histogram
-    __m256i a;
+	#pragma omp parallel num_threads(16)
+	{
+    __m256i a, b0, c0;
 	uint64_t a0, a1, a2, a3;
-	#pragma omp parallel for num_threads(32)
-	for(int i = 0; i < IMAGE_SIZE/32; i += 1){
+	uint32_t *hist = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
+	int num_threads = omp_get_num_threads();
+	int id = omp_get_thread_num();
+	int work_size = IMAGE_SIZE/32/num_threads;
+	int start = id*work_size;
+	//printf("thread %d: %d to %d\n", id, start, start+work_size-1);
+	//#pragma omp parallel for 
+	for(int i = start; i < start+work_size; i += 1){
 		a = _mm256_stream_load_si256 ((const __m256i*)src+i);
 		// extract 64 bits from 256-bit
 		a0 = _mm256_extract_epi64(a, 0);
 		a1 = _mm256_extract_epi64(a, 1);
 		a2 = _mm256_extract_epi64(a, 2);
 		a3 = _mm256_extract_epi64(a, 3);
-	//	#pragma omp critical
-		{
 		// extracrt 8 bits from 64-bit
 		hist[a0&0xFF]++;
 		hist[(a0>>8)&0xFF]++;
@@ -732,7 +735,16 @@ void openmp_cal_hist(unsigned char *src, uint32_t *hist){
 		hist[(a3>>40)&0xFF]++;
 		hist[(a3>>48)&0xFF]++;
 		hist[(a3>>56)&0xFF]++;
-		} // end OpenMP critical
+		}
+		#pragma omp critical
+		{
+			for(int i = 0; i < INTENSITY_SPACE; i+=8){	
+				b0 = _mm256_loadu_si256((const __m256i*)(global_hist+i));
+				c0 = _mm256_loadu_si256((const __m256i*)(hist+i));
+				b0 = _mm256_add_epi32(b0, c0);
+				_mm256_storeu_si256((__m256i*)(global_hist+i), b0);
+			}
+		}
 	}
 }
 
