@@ -748,6 +748,79 @@ void openmp_cal_hist(unsigned char *src, uint32_t *global_hist){
 	}
 }
 
+/*global hist is the histogram for src0*/
+void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global_hist){
+    // collect histogram
+	#pragma omp parallel num_threads(16)
+	{
+    __m256i a, b0, c0, d;
+	uint64_t a0, a1, a2, a3;
+	uint64_t d0, d1, d2, d3;	
+	uint32_t *hist = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
+	int num_threads = omp_get_num_threads();
+	int id = omp_get_thread_num();
+	int work_size = IMAGE_SIZE/32/num_threads;
+	int start = id*work_size;
+	//printf("thread %d: %d to %d\n", id, start, start+work_size-1);
+	//#pragma omp parallel for 
+	for(int i = start; i < start+work_size; i += 1){
+		a = _mm256_stream_load_si256 ((const __m256i*)src0+i);
+		d = _mm256_stream_load_si256 ((const __m256i*)src1+i);
+		// extract 64 bits from 256-bit
+		a0 = _mm256_extract_epi64(a, 0);
+		a1 = _mm256_extract_epi64(a, 1);
+		a2 = _mm256_extract_epi64(a, 2);
+		a3 = _mm256_extract_epi64(a, 3);
+		d0 = _mm256_extract_epi64(d, 0);
+		d1 = _mm256_extract_epi64(d, 1);
+		d2 = _mm256_extract_epi64(d, 2);
+		d3 = _mm256_extract_epi64(d, 3);
+		// extracrt 8 bits from 64-bit
+		hist[a0&0xFF]++;
+		hist[(a0>>8)&0xFF]++;
+		hist[(a0>>16)&0xFF]++;
+		hist[(a0>>24)&0xFF]++;
+		hist[(a0>>32)&0xFF]++;
+		hist[(a0>>40)&0xFF]++;
+		hist[(a0>>48)&0xFF]++;
+		hist[(a0>>56)&0xFF]++;
+		hist[a1&0xFF]++;
+		hist[(a1>>8)&0xFF]++;
+		hist[(a1>>16)&0xFF]++;
+		hist[(a1>>24)&0xFF]++;
+		hist[(a1>>32)&0xFF]++;
+		hist[(a1>>40)&0xFF]++;
+		hist[(a1>>48)&0xFF]++;
+		hist[(a1>>56)&0xFF]++;
+		hist[a2&0xFF]++;
+		hist[(a2>>8)&0xFF]++;
+		hist[(a2>>16)&0xFF]++;
+		hist[(a2>>24)&0xFF]++;
+		hist[(a2>>32)&0xFF]++;
+		hist[(a2>>40)&0xFF]++;
+		hist[(a2>>48)&0xFF]++;
+		hist[(a2>>56)&0xFF]++;
+		hist[a3&0xFF]++;
+		hist[(a3>>8)&0xFF]++;
+		hist[(a3>>16)&0xFF]++;
+		hist[(a3>>24)&0xFF]++;
+		hist[(a3>>32)&0xFF]++;
+		hist[(a3>>40)&0xFF]++;
+		hist[(a3>>48)&0xFF]++;
+		hist[(a3>>56)&0xFF]++;
+		}
+		#pragma omp critical
+		{
+			for(int i = 0; i < INTENSITY_SPACE; i+=8){	
+				b0 = _mm256_loadu_si256((const __m256i*)(global_hist+i));
+				c0 = _mm256_loadu_si256((const __m256i*)(hist+i));
+				b0 = _mm256_add_epi32(b0, c0);
+				_mm256_storeu_si256((__m256i*)(global_hist+i), b0);
+			}
+		}
+	}
+}
+
 
 
 void base_cal_hist(unsigned char *src, uint32_t *hist){
