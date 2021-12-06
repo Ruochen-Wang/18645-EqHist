@@ -80,11 +80,11 @@ float compare_hist(unsigned int *H1, unsigned int *H2){
     float h1, h2;
 
     for (int i = 0; i < INTENSITY_SPACE; ++i){
-        h1 = H1[i] / IMAGE_SIZE;
-        h2 = H2[i] / IMAGE_SIZE;
+        h1 = H1[i];
+        h2 = H2[i];
         result += abs(h1-h2);
     }
-    return result;
+    return result/IMAGE_SIZE;
 }
 
 /*
