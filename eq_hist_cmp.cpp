@@ -7,10 +7,7 @@
 #include <immintrin.h>
 #include <malloc.h>
 #include <omp.h>
-//#include "opencv2/imgcodecs.hpp"
 
-//using namespace cv;
-//using namespace std;
 
 #define WIDTH                  	512 
 #define HEIGHT                  WIDTH
@@ -26,6 +23,8 @@ static __inline__ unsigned long long rdtsc(void) {
 void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global_hist, uint32_t *global_diff);
 void openmp_cal_hist(unsigned char *src, uint32_t *hist);
 float compare_hist(unsigned int *H1, unsigned int *H2);
+float openmp_cal_abs(uint32_t *global_diff);
+unsigned int *gen_hist(unsigned char *src, unsigned int *ptr);
 
 int main(){
     // prepare input
@@ -45,41 +44,22 @@ int main(){
     uint32_t *global_diff = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t)); //modify
 	
 
-	int sum;
+	float sum=0;
 	unsigned long long t0, t1;	
+	unsigned int *h1, *h2;
 
-	for(int i = 1; i <= 1; i++){
-		printf("%2d ", i);
-
-		// t0 = rdtsc();
-		// openmp_cal_2hist(src0, src1, hist0, global_diff);
-		// //openmp_cal_abs(global_diff, sum);
-        // //abs+sum
-		// t1 = rdtsc();
-		// printf("%ld \n", t1-t0);
-
-
+	for(int i = 1; i <= 30; i++){
+		// printf("%2d ", i);
 
 		t0 = rdtsc();
-		openmp_cal_hist(src0, hist0);
-		openmp_cal_hist(src1, hist1);
-		compare_hist(hist0, hist1);
+		openmp_cal_2hist(src0, src1, hist0, global_diff);
+		sum = openmp_cal_abs(global_diff);
 		t1 = rdtsc();
-		printf("%ld\n", t1-t0);
+		printf("%ld \n", t1-t0);
+
 
 	}
-/*
-	int hist1tt = 0, hist2tt = 0, hist5tt = 0;
-	for(int i = 0; i < INTENSITY_SPACE; i++){
-		hist1tt += hist1[i];
-		hist5tt += hist5[i];
-		if(hist1[i] != hist5[i])
-			printf("at %d actually: %d, expected: %d\n", i, hist1[i], hist5[i]);	
-	}
-	printf("total actually: %d, expected: %d\n", hist1tt, hist5tt);
-*/
-//	for(int i = 0; i < INTENSITY_SPACE; i++) printf("hist[%d]: %d\n", i, hist[i]);
-//    output_file.write((char *)dst, IMAGE_SIZE);
+
 	free(hist0);
 	free(hist1);
 	free(src0);
@@ -118,7 +98,6 @@ void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global
 	int id = omp_get_thread_num();
 	int work_size = IMAGE_SIZE/32/num_threads;
 	int start = id*work_size;
-	//printf("thread %d: %d to %d\n", id, start, start+work_size-1);
 	//#pragma omp parallel for 
 	for(int i = start; i < start+work_size; i += 1){
 		a = _mm256_stream_load_si256 ((const __m256i*)src0+i);
@@ -142,6 +121,14 @@ void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global
 		local_diff[(a0>>40)&0xFF]++;
 		local_diff[(a0>>48)&0xFF]++;
 		local_diff[(a0>>56)&0xFF]++;
+		hist[a0&0xFF]++;
+		hist[(a0>>8)&0xFF]++;
+		hist[(a0>>16)&0xFF]++;
+		hist[(a0>>24)&0xFF]++;
+		hist[(a0>>32)&0xFF]++;
+		hist[(a0>>40)&0xFF]++;
+		hist[(a0>>48)&0xFF]++;
+		hist[(a0>>56)&0xFF]++;
 		local_diff[a1&0xFF]++;
 		local_diff[(a1>>8)&0xFF]++;
 		local_diff[(a1>>16)&0xFF]++;
@@ -150,6 +137,14 @@ void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global
 		local_diff[(a1>>40)&0xFF]++;
 		local_diff[(a1>>48)&0xFF]++;
 		local_diff[(a1>>56)&0xFF]++;
+		hist[a1&0xFF]++;
+		hist[(a1>>8)&0xFF]++;
+		hist[(a1>>16)&0xFF]++;
+		hist[(a1>>24)&0xFF]++;
+		hist[(a1>>32)&0xFF]++;
+		hist[(a1>>40)&0xFF]++;
+		hist[(a1>>48)&0xFF]++;
+		hist[(a1>>56)&0xFF]++;
 		local_diff[a2&0xFF]++;
 		local_diff[(a2>>8)&0xFF]++;
 		local_diff[(a2>>16)&0xFF]++;
@@ -158,6 +153,14 @@ void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global
 		local_diff[(a2>>40)&0xFF]++;
 		local_diff[(a2>>48)&0xFF]++;
 		local_diff[(a2>>56)&0xFF]++;
+		hist[a2&0xFF]++;
+		hist[(a2>>8)&0xFF]++;
+		hist[(a2>>16)&0xFF]++;
+		hist[(a2>>24)&0xFF]++;
+		hist[(a2>>32)&0xFF]++;
+		hist[(a2>>40)&0xFF]++;
+		hist[(a2>>48)&0xFF]++;
+		hist[(a2>>56)&0xFF]++;
 		local_diff[a3&0xFF]++;
 		local_diff[(a3>>8)&0xFF]++;
 		local_diff[(a3>>16)&0xFF]++;
@@ -166,6 +169,14 @@ void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global
 		local_diff[(a3>>40)&0xFF]++;
 		local_diff[(a3>>48)&0xFF]++;
 		local_diff[(a3>>56)&0xFF]++;
+		hist[a3&0xFF]++;
+		hist[(a3>>8)&0xFF]++;
+		hist[(a3>>16)&0xFF]++;
+		hist[(a3>>24)&0xFF]++;
+		hist[(a3>>32)&0xFF]++;
+		hist[(a3>>40)&0xFF]++;
+		hist[(a3>>48)&0xFF]++;
+		hist[(a3>>56)&0xFF]++;
 
 
 		local_diff[d0&0xFF]--;
@@ -200,43 +211,6 @@ void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global
 		local_diff[(d3>>40)&0xFF]--;
 		local_diff[(d3>>48)&0xFF]--;
 		local_diff[(d3>>56)&0xFF]--;
-
-
-
-		// extracrt 8 bits from 64-bit
-		hist[a0&0xFF]++;
-		hist[(a0>>8)&0xFF]++;
-		hist[(a0>>16)&0xFF]++;
-		hist[(a0>>24)&0xFF]++;
-		hist[(a0>>32)&0xFF]++;
-		hist[(a0>>40)&0xFF]++;
-		hist[(a0>>48)&0xFF]++;
-		hist[(a0>>56)&0xFF]++;
-		hist[a1&0xFF]++;
-		hist[(a1>>8)&0xFF]++;
-		hist[(a1>>16)&0xFF]++;
-		hist[(a1>>24)&0xFF]++;
-		hist[(a1>>32)&0xFF]++;
-		hist[(a1>>40)&0xFF]++;
-		hist[(a1>>48)&0xFF]++;
-		hist[(a1>>56)&0xFF]++;
-		hist[a2&0xFF]++;
-		hist[(a2>>8)&0xFF]++;
-		hist[(a2>>16)&0xFF]++;
-		hist[(a2>>24)&0xFF]++;
-		hist[(a2>>32)&0xFF]++;
-		hist[(a2>>40)&0xFF]++;
-		hist[(a2>>48)&0xFF]++;
-		hist[(a2>>56)&0xFF]++;
-		hist[a3&0xFF]++;
-		hist[(a3>>8)&0xFF]++;
-		hist[(a3>>16)&0xFF]++;
-		hist[(a3>>24)&0xFF]++;
-		hist[(a3>>32)&0xFF]++;
-		hist[(a3>>40)&0xFF]++;
-		hist[(a3>>48)&0xFF]++;
-		hist[(a3>>56)&0xFF]++;
-		
 		}
 
 
@@ -250,7 +224,6 @@ void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global
 				_mm256_storeu_si256((__m256i*)(global_hist+i), b0);
 				global_diff[i] += local_diff[i];
 			}
-
 		}
 
 	}
@@ -327,31 +300,35 @@ void openmp_cal_hist(unsigned char *src, uint32_t *global_hist){
 
 
 
-/*
-void openmp_cal_abs(uint32_t *global_diff, int sum){
-	int sum;
-	__m256i a;
-	__m256i s;
-	unsigned int num_thread = 16;
-	unsigned int size = (INTENSITY_SPACE-2) / num_thread;
-	omp_set_num_threads(num_thread);
 
-	#pragma omp parallel
-	{
-		unsigned int id = omp_get_thread_num();
-		unsigned int start = id * size;
-		unsigned int end = (id+1) * size;
-
-		unsigned int local_sum = 0;
-
-		for(int i = 0; i < start; i<end; i++){	
-			a = _mm256_abs_epi32(global_diff+i);
-			s = _mm256_hadd_epi32(a, a);
-			local_sum = ((int*)&s)[0] + ((int*)&s)[1] + ((int*)&s)[4] + ((int*)&s)[5] + local_sum;
-		}
-	#pragma omp critical
-	sum += local_sum;
-
+float openmp_cal_abs(uint32_t *global_diff){
+    uint32_t s[8] = {};
+    float sum = 0;
+	__m256i a, b;
+    __m256i sum0, size;
+    uint32_t x=0;
+    sum0 = _mm256_set1_epi32(x);
+        
+	for(int i = 0; i<INTENSITY_SPACE; i+=8){	
+		a = _mm256_loadu_si256((const __m256i*)(global_diff+i));
+		//b = _mm256_max_epi32(_mm256_sub_epi32(_mm256_set1_epi32(0.0), a), a);
+		b = _mm256_abs_epi32(a);
+		_mm256_storeu_si256((__m256i*)(global_diff+i), b);
 	}
+
+	for(int i=0; i<INTENSITY_SPACE; i++)
+		sum = sum + global_diff[i];
+
+	return sum/IMAGE_SIZE;
+
 }
-*/
+
+
+
+unsigned int *gen_hist(unsigned char *src, unsigned int *ptr){
+    // collect histogram
+    for (int i = 0; i < IMAGE_SIZE; i++){
+        ptr[(unsigned char)src[i]]++;
+    }
+    return ptr;
+}
