@@ -7,6 +7,17 @@
 #include <immintrin.h>
 #include <malloc.h>
 #include <omp.h>
+#include <sys/time.h>
+
+double mysecond()
+{
+        struct timeval tp;
+        struct timezone tzp;
+        int i;
+
+        i = gettimeofday(&tp,&tzp);
+        return ( (double) tp.tv_sec + (double) tp.tv_usec * 1.e-6 );
+}
 //#include "opencv2/imgcodecs.hpp"
 
 //using namespace cv;
@@ -14,7 +25,8 @@
 
 #define WIDTH                  	512 
 #define HEIGHT                  WIDTH
-#define IMAGE_SIZE              WIDTH*HEIGHT
+#define MUL						32
+#define IMAGE_SIZE              WIDTH*HEIGHT*MUL
 #define INTENSITY_SPACE         256
 static __inline__ unsigned long long rdtsc(void) {
   unsigned hi, lo;
@@ -39,7 +51,8 @@ int main(){
 
 //    unsigned char *src = new unsigned char[IMAGE_SIZE];
 	unsigned char *src = (unsigned char *)memalign(256, IMAGE_SIZE*sizeof(uint8_t));
-    input_file.read((char *)src, IMAGE_SIZE);
+    input_file.read((char *)src, IMAGE_SIZE/MUL);
+    input_file.read((char *)src+IMAGE_SIZE/MUL, IMAGE_SIZE/MUL);
     
 	unsigned char *dst = new unsigned char [IMAGE_SIZE];
 	uint32_t *hist1 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
@@ -47,12 +60,17 @@ int main(){
 	uint32_t *hist3 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
 	uint32_t *hist4 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
 	uint32_t *hist5 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
+	uint32_t *hist6 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
+	uint32_t *hist7 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
+	uint32_t *hist8 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
+	uint32_t *hist9 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
 
 	unsigned long long t0, t1;	
+	double dt0, dt1;
 
 	for(int i = 1; i <= 30; i++){
 		printf("%2d ", i);
-
+/*
 		t0 = rdtsc();
 		base_cal_hist(src, hist1);
 		t1 = rdtsc();
@@ -72,11 +90,14 @@ int main(){
 		multistream_cal_hist(src, hist4);
 		t1 = rdtsc();
 		printf("%ld ", t1-t0);
-
+*/		
 		t0 = rdtsc();
+		//dt0 = mysecond();
 		openmp_cal_hist(src, hist5);
+		//dt1 = mysecond();
 		t1 = rdtsc();
 		printf("%ld\n", t1-t0);
+
 	}
 /*
 	int hist1tt = 0, hist2tt = 0, hist5tt = 0;
@@ -95,6 +116,10 @@ int main(){
 	free(hist3);
 	free(hist4);
 	free(hist5);
+	free(hist6);
+	free(hist7);
+	free(hist8);
+	free(hist9);
 	free(src);
     return 0;
 }
