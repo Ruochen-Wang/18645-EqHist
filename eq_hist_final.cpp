@@ -24,6 +24,9 @@ static __inline__ unsigned long long rdtsc(void) {
 
 void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global_hist0, uint32_t *global_hist2, int *global_diff);
 float openmp_cal_abs_simd(int *global_diff);
+void cal_lut(uint32_t *hist, float *lut);
+uint8_t sat_cast(uint16_t scaled_number);
+
 int main(){
     // prepare input
     std::ifstream input_file("512.b", std::ifstream::binary);
@@ -48,7 +51,7 @@ int main(){
 
 		t0 = rdtsc();
 		openmp_cal_2hist(src0, src1, hist0, hist1, global_diff);
-		cal_lut_base(hist1, lut1);
+		cal_lut(hist1, lut1);
 		t1 = rdtsc();
 		printf("%ld ", t1-t0);
 
@@ -208,3 +211,29 @@ float openmp_cal_abs_simd(int *global_diff){
 	}
 	return sum/IMAGE_SIZE;
 }
+
+void cal_lut(uint32_t *hist, float *lut){
+    // find the first non-zero intensity
+    int fnz = 0;
+    while (!hist[fnz]) ++fnz;
+
+    float scale = (INTENSITY_SPACE - 1.f)/(IMAGE_SIZE - hist[fnz]);
+    __m256 m_scale = _mm256_set1_ps(scale);
+
+    // define SIMD variables
+    __m256 l1;
+
+	int sum = 0;
+	for (int k = 1; k < INTENSITY_SPACE; ++k) {
+		sum += hist[k];
+		lut[k] = sum;
+	}
+
+    for (int k = 0; k < INTENSITY_SPACE; k += 8) {
+        l1 = _mm256_loadu_ps((float const*) &lut[k]);
+        l1 = _mm256_mul_ps(l1, m_scale);
+        _mm256_storeu_ps((float*) &lut[k], l1);
+    }
+}
+
+uint8_t sat_cast(uint16_t scaled_number){ return (uint8_t)std::min((uint16_t)scaled_number, (uint16_t)0xFFFF); }
