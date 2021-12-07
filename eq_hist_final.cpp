@@ -35,9 +35,10 @@ int main(){
 //    unsigned char *src = new unsigned char[IMAGE_SIZE];
 	unsigned char *src0 = (unsigned char *)memalign(256, IMAGE_SIZE*sizeof(uint8_t));
 	unsigned char *src1 = (unsigned char *)memalign(256, IMAGE_SIZE*sizeof(uint8_t));
-    input_file.read((char *)src, IMAGE_SIZE);
+	unsigned char *dst = (unsigned char *)memalign(256, IMAGE_SIZE*sizeof(uint8_t));
+    input_file.read((char *)src0, IMAGE_SIZE);
+    input_file.read((char *)src1, IMAGE_SIZE);
     
-	unsigned char *dst = new unsigned char [IMAGE_SIZE];
 	uint32_t *hist0 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
 	uint32_t *hist1 = (uint32_t *)malloc(INTENSITY_SPACE*sizeof(uint32_t));
 	float *lut1 = (float *)malloc(INTENSITY_SPACE*sizeof(float));
@@ -52,19 +53,24 @@ int main(){
 		t0 = rdtsc();
 		openmp_cal_2hist(src0, src1, hist0, hist1, global_diff);
 		cal_lut(hist1, lut1);
+    	for (int i = 0; i < IMAGE_SIZE; ++i) {
+        	dst[i] = lut1[(unsigned char)src0[i]];
+    	}
 		t1 = rdtsc();
-		printf("%ld ", t1-t0);
+		printf("%ld \n", t1-t0);
 
 	}
 	free(hist1);
-	free(hist2);
+	free(hist0);
 	free(lut1);
-	free(src);
+	free(src0);
+	free(src1);
+	free(dst);
     return 0;
 }
 
 /*global hist is the histogram for src0*/
-void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global_hist0, uint32_t *global_hist2, int *global_diff){
+void openmp_cal_2hist(unsigned char *src0, unsigned char *src1, uint32_t *global_hist1, uint32_t *global_hist2, int *global_diff){
     // collect histogram
 	#pragma omp parallel num_threads(16)
 	{
